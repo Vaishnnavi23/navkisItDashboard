@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Issues</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            text-align: center;
+        }
+        h2 {
+            color: #343a40;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 8px;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 5px;
+            text-align: center;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background: #ADD8E6;
+            color: black;
+            
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        #stats {
+            margin-top: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+		 #loadingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+    }
+
+    /* Spinner */
+    .spinner {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #007bff;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    </style>
+</head>
+<body>
+    
+    <h2>IT Issues</h2>
+    <div id="loadingOverlay">
+    <div class="spinner"></div>
+</div>
+	<div id="stats">
+    <label for="departmentFilter">Filter by Department: </label>
+    <select id="departmentFilter">
+        <option value="">All</option>
+    </select>
+    
+    <label for="locationFilter">Filter by Location: </label>
+    <select id="locationFilter">
+        <option value="">All</option>
+    </select>
+	</div>
+
+    <div id="stats">
+        <p>Total Issues: <span id="totalIssues">0</span></p>
+        <p>Total Open Issues: <span id="openIssues">0</span></p>
+        <p>Total Closed Issues: <span id="closedIssues">0</span></p>
+    </div>
+	
+	  <div class="filter-container">
+        <label for="monthFilter" style="font-size: 14px; ">Select Month: </label>
+        <select id="monthFilter" onchange="filterByMonth()">
+            <option value="">All Months</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select>
+    </div>
+    
+    <table id="issuesTable" class="display">
+        <thead>
+            <tr id="tableHeader"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        let table;  
+
+        $(document).ready(function () {
+           const sheetUrl = "https://script.google.com/macros/s/AKfycbyuf4acpaoZDodE9T4wOHUI_cZDAG1nvysqlF1KqJxKy1dbYHMD5C_iEOOce2zkLwA/exec";
+
+            fetch(sheetUrl)
+                .then(response => response.json())
+                .then(data => {
+                    let headers = data[14]; // Row 15 is header
+                    let headerRow = "";
+                    let departmentSet = new Set();
+                    let locationSet = new Set();
+                    
+                    headers.forEach(header => {
+                        headerRow += `<th>${header}</th>`;
+                    });
+                    
+                    $("#tableHeader").html(headerRow);
+                    let bodyRows = "";
+                    let issuesData = [];
+
+                  data.slice(15).forEach(row => {
+    let rowData = "<tr>";
+    row.forEach((cell, index) => {
+        if ((index === 3 || index === 7) && cell) { // Column 4 (index 3) & Column 8 (index 7)
+            let dateObj = new Date(cell);
+            if (!isNaN(dateObj)) {
+                let formattedDate = dateObj.toLocaleDateString("en-GB"); // dd-mm-yyyy format
+                let formattedTime = dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: true }); // hh:mm AM/PM format
+                cell = `${formattedDate}<br>${formattedTime}`;
+            }
+        }
+        rowData += `<td>${cell}</td>`;
+    });
+    rowData += "</tr>";
+    bodyRows += rowData;
+
+						
+						
+
+                        departmentSet.add(row[8]);  // Column 2 = Department
+                        locationSet.add(row[9]);   // Column 10 = Location
+                    });
+
+                    $("#tableBody").html(bodyRows);
+
+                    table = $("#issuesTable").DataTable({
+                        paging: true,
+                        searching: true,
+                        ordering: false,
+                        lengthMenu: [10, 25, 50, 100],
+                        drawCallback: function () {
+                            updateStats();  
+                        }
+                    });
+			
+
+                    // Populate department dropdown
+                    departmentSet.forEach(dept => {
+                        $("#departmentFilter").append(`<option value="${dept}">${dept}</option>`);
+                    });
+
+                    // Populate location dropdown
+                    locationSet.forEach(loc => {
+                        $("#locationFilter").append(`<option value="${loc}">${loc}</option>`);
+                    });
+
+                    $("#departmentFilter, #locationFilter").on("change", function () {
+                        let selectedDept = $("#departmentFilter").val();
+                        let selectedLoc = $("#locationFilter").val();
+                        table.column(8).search(selectedDept ? `^${selectedDept}$` : "", true, false);
+                        table.column(9).search(selectedLoc ? `^${selectedLoc}$` : "", true, false);
+                        table.draw();
+                        updateStats();
+                    });
+
+                    updateStats();
+					  $("#loadingOverlay").fadeOut();
+					
+                });
+				
+				 
+
+            function updateStats() {
+    if (!table) return;
+
+    let totalIssues = $("#issuesTable").DataTable().rows({ search: "applied" }).count();
+  let openIssues = $("#issuesTable")
+    .DataTable()
+    .rows({ search: "applied" })
+    .data()
+    .toArray()
+    .filter(row => !row[15] || row[15].trim().toLowerCase() !== "closed"
+    ).length;
+	
+	 let closedIssues = $("#issuesTable")
+    .DataTable()
+    .rows({ search: "applied" })
+    .data()
+    .toArray()
+    .filter(row => !row[15] || row[15].trim().toLowerCase() == "closed"
+    ).length;
+	
+   // let closedIssues = totalIssues - openIssues;
+
+    localStorage.setItem("totalIssues", totalIssues);
+    localStorage.setItem("openIssues", openIssues);
+    localStorage.setItem("closedIssues", closedIssues);
+	$("#totalIssues").text(totalIssues);
+    $("#openIssues").text(openIssues);
+	$("#closedIssues").text(closedIssues);
+
+    let locations = ["kogilu", "gokula", "hassan", "mysore", "nelamangala"];
+    let departments = ["admin", "it", "hr", "finance", "academics"];
+
+    let locationData = {};
+    let departmentData = {};
+    let monthData = {};
+
+    locations.forEach(loc => locationData[loc] = { total: 0, open: 0 });
+    departments.forEach(dept => departmentData[dept] = { total: 0, open: 0 });
+
+    for (let i = 1; i <= 12; i++) {
+        let monthKey = i.toString().padStart(2, "0"); // "01", "02", etc.
+        monthData[monthKey] = {
+            total: 0,
+            open: 0,
+            closed: 0,
+            locations: {},
+            departments: {}
+        };
+
+        locations.forEach(loc => monthData[monthKey].locations[loc] = { total: 0, open: 0 });
+        departments.forEach(dept => monthData[monthKey].departments[dept] = { total: 0, open: 0 });
+    }
+
+    table.rows().data().toArray().forEach(row => {
+        let location = row[9]?.trim().toLowerCase();  // Column 10 = Location
+        let department = row[8]?.trim().toLowerCase(); // Column 9 = Department
+        let issueDate = row[3]; // Change if date column is different
+
+        let isOpen = row[15] && row[15].toLowerCase() !== "closed";
+
+        if (location && locationData[location] !== undefined) {
+            locationData[location].total++;
+            if (isOpen) locationData[location].open++;
+        }
+
+        if (department && departmentData[department] !== undefined) {
+            departmentData[department].total++;
+            if (isOpen) departmentData[department].open++;
+        }
+
+        if (issueDate) {
+            let month = issueDate.split("/")[1]; // Extract month from dd/mm/yyyy
+
+            if (monthData[month]) {
+                monthData[month].total++;
+                if (isOpen) {
+                    monthData[month].open++;
+                } else {
+                    monthData[month].closed++;
+                }
+
+                if (location && monthData[month].locations[location] !== undefined) {
+                    monthData[month].locations[location].total++;
+                    if (isOpen) monthData[month].locations[location].open++;
+                }
+
+                if (department && monthData[month].departments[department] !== undefined) {
+                    monthData[month].departments[department].total++;
+                    if (isOpen) monthData[month].departments[department].open++;
+                }
+            }
+        }
+    });
+
+    locations.forEach(loc => {
+        localStorage.setItem(`${loc}Total`, locationData[loc].total);
+        localStorage.setItem(`${loc}Open`, locationData[loc].open);
+    });
+
+    departments.forEach(dept => {
+        localStorage.setItem(`${dept}Total`, departmentData[dept].total);
+        localStorage.setItem(`${dept}Open`, departmentData[dept].open);
+    });
+
+    Object.keys(monthData).forEach(month => {
+        localStorage.setItem(`month_${month}_Total`, monthData[month].total);
+        localStorage.setItem(`month_${month}_Open`, monthData[month].open);
+        localStorage.setItem(`month_${month}_Closed`, monthData[month].closed);
+
+        locations.forEach(loc => {
+            localStorage.setItem(`month_${month}_${loc}Total`, monthData[month].locations[loc].total);
+            localStorage.setItem(`month_${month}_${loc}Open`, monthData[month].locations[loc].open);
+        });
+
+        departments.forEach(dept => {
+            localStorage.setItem(`month_${month}_${dept}Total`, monthData[month].departments[dept].total);
+            localStorage.setItem(`month_${month}_${dept}Open`, monthData[month].departments[dept].open);
+        });
+    });
+
+    console.log("Updated Location Data:", locationData);
+    console.log("Updated Department Data:", departmentData);
+    console.log("Updated Monthly Data:", monthData);
+}
+
+        });
+		
+		
+		 function filterByMonth() {
+				
+            let selectedMonth = document.getElementById("monthFilter").value; // Get selected month
+
+            $("#issuesTable tbody tr").each(function () {
+                let rowDate = $(this).find("td:nth-child(4)").text(); // Get date from 2nd column
+				//alert(rowDate.split("/")[1]);
+                let rowMonth = rowDate.split("/")[1]; // Extract month (YYYY-MM-DD format)
+
+                if (selectedMonth === "" || rowMonth === selectedMonth) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+		
+
+		
+		
+    </script>
+
+</body>
+</html>
