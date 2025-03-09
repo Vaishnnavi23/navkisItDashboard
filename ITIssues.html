@@ -158,7 +158,7 @@
     let rowData = "<tr>";
 	
     row.forEach((cell, index) => {
-	console.log("16 :"+row[16]);
+	
 	 if (index === 0 && cell) { // Column 4 (index 3) & Column 8 (index 7)
            
         
@@ -252,11 +252,7 @@ let closedIssues = table
     .filter(row => row[15] && row[15].trim().toLowerCase() === "closed") // Ensure correct filtering
     .length;
 	
-	console.log(table
-    .rows({ search: "applied" }) // Only consider currently filtered rows
-    .data() // Get data from filtered rows
-    .toArray());
-   // let closedIssues = totalIssues - openIssues;
+	
 
     localStorage.setItem("totalIssues", totalIssues);
     localStorage.setItem("openIssues", openIssues);
@@ -297,6 +293,7 @@ let closedIssues = table
         let isOpen = row[15] && row[15].toLowerCase() !== "closed";
 
         if (location && locationData[location] !== undefined) {
+		console.log(locationData);
             locationData[location].total++;
             if (isOpen) locationData[location].open++;
         }
