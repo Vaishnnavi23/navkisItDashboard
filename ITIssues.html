@@ -136,17 +136,17 @@
         let table;  
 
         $(document).ready(function () {
-           const sheetUrl = "https://script.google.com/macros/s/AKfycbyd-Z5cfzMpL4ckdNeHnYUMPsiIBrHbc9Ot4FGLdD6yo0lXGs4-kFqv4gVe3LvWcQ/exec";
+           const sheetUrl = "https://script.google.com/macros/s/AKfycbwfl1q5oVdjm0jvlCEi-QtBzAB54rDdBeCnUhxPhIHc1OaNpoNL3GOO7ktXswXBT4w/exec";
 
             fetch(sheetUrl)
                 .then(response => response.json())
                 .then(data => {
-                    let headers = data[14]; // Row 15 is header
+                    let headers = data[0]; // Row 15 is header
                     let headerRow = "";
                     let departmentSet = new Set();
                     let locationSet = new Set();
                     
-                    headers.forEach(header => {
+                    headers.slice(1).forEach(header => {
                         headerRow += `<th>${header}</th>`;
                     });
                     
@@ -154,10 +154,19 @@
                     let bodyRows = "";
                     let issuesData = [];
 
-                  data.slice(15).forEach(row => {
+                  data.slice(1).forEach(row => {
     let rowData = "<tr>";
+	
     row.forEach((cell, index) => {
-        if ((index === 3 || index === 7) && cell) { // Column 4 (index 3) & Column 8 (index 7)
+	console.log("16 :"+row[16]);
+	 if (index === 0 && cell) { // Column 4 (index 3) & Column 8 (index 7)
+           
+        
+                return;
+            
+        }
+	
+        if ((index === 4 || index === 12) && cell) { // Column 4 (index 3) & Column 8 (index 7)
             let dateObj = new Date(cell);
             if (!isNaN(dateObj)) {
                 let formattedDate = dateObj.toLocaleDateString("en-GB"); // dd-mm-yyyy format
@@ -165,16 +174,22 @@
                 cell = `${formattedDate}<br>${formattedTime}`;
             }
         }
+		
+		
         rowData += `<td>${cell}</td>`;
+		
+		
+		
     });
     rowData += "</tr>";
+	
     bodyRows += rowData;
 
 						
 						
 
-                        departmentSet.add(row[8]);  // Column 2 = Department
-                        locationSet.add(row[9]);   // Column 10 = Location
+                        departmentSet.add(row[9]); 
+                        locationSet.add(row[10]);   
                     });
 
                     $("#tableBody").html(bodyRows);
@@ -202,7 +217,8 @@
 
                     $("#departmentFilter, #locationFilter").on("change", function () {
                         let selectedDept = $("#departmentFilter").val();
-                        let selectedLoc = $("#locationFilter").val();
+						
+              let selectedLoc = $("#locationFilter").val();
                         table.column(8).search(selectedDept ? `^${selectedDept}$` : "", true, false);
                         table.column(9).search(selectedLoc ? `^${selectedLoc}$` : "", true, false);
                         table.draw();
@@ -220,6 +236,7 @@
     if (!table) return;
 
     let totalIssues = $("#issuesTable").DataTable().rows({ search: "applied" }).count();
+	//console.log("row[16] ::::"+row[16]);
   let openIssues = $("#issuesTable")
     .DataTable()
     .rows({ search: "applied" })
@@ -228,14 +245,17 @@
     .filter(row => !row[15] || row[15].trim().toLowerCase() !== "closed"
     ).length;
 	
-	 let closedIssues = $("#issuesTable")
-    .DataTable()
-    .rows({ search: "applied" })
-    .data()
+let closedIssues = table
+    .rows({ search: "applied" }) // Only consider currently filtered rows
+    .data() // Get data from filtered rows
     .toArray()
-    .filter(row => !row[15] || row[15].trim().toLowerCase() == "closed"
-    ).length;
+    .filter(row => row[15] && row[15].trim().toLowerCase() === "closed") // Ensure correct filtering
+    .length;
 	
+	console.log(table
+    .rows({ search: "applied" }) // Only consider currently filtered rows
+    .data() // Get data from filtered rows
+    .toArray());
    // let closedIssues = totalIssues - openIssues;
 
     localStorage.setItem("totalIssues", totalIssues);
@@ -270,9 +290,9 @@
     }
 
     table.rows().data().toArray().forEach(row => {
-        let location = row[9]?.trim().toLowerCase();  // Column 10 = Location
-        let department = row[8]?.trim().toLowerCase(); // Column 9 = Department
-        let issueDate = row[3]; // Change if date column is different
+        let location = row[10]?.trim().toLowerCase();  // Column 10 = Location
+        let department = row[9]?.trim().toLowerCase(); // Column 9 = Department
+        let issueDate = row[4]; // Change if date column is different
 
         let isOpen = row[15] && row[15].toLowerCase() !== "closed";
 
@@ -311,6 +331,7 @@
     });
 
     locations.forEach(loc => {
+	console.log("Location total :"+locationData[loc].total)
         localStorage.setItem(`${loc}Total`, locationData[loc].total);
         localStorage.setItem(`${loc}Open`, locationData[loc].open);
     });
@@ -336,30 +357,31 @@
         });
     });
 
-    console.log("Updated Location Data:", locationData);
-    console.log("Updated Department Data:", departmentData);
-    console.log("Updated Monthly Data:", monthData);
+    //console.log("Updated Location Data:", locationData);
+    //console.log("Updated Department Data:", departmentData);
+   // console.log("Updated Monthly Data:", monthData);
 }
 
         });
 		
 		
-		 function filterByMonth() {
-				
-            let selectedMonth = document.getElementById("monthFilter").value; // Get selected month
+		function filterByMonth() {
+    let selectedMonth = document.getElementById("monthFilter").value; // Get selected month
+    let table = $('#issuesTable').DataTable(); // Get DataTable instance
 
-            $("#issuesTable tbody tr").each(function () {
-                let rowDate = $(this).find("td:nth-child(4)").text(); // Get date from 2nd column
-				//alert(rowDate.split("/")[1]);
-                let rowMonth = rowDate.split("/")[1]; // Extract month (YYYY-MM-DD format)
+    // Use DataTables' search function with a custom filter
+    $.fn.dataTable.ext.search.pop(); // Clear previous filters
 
-                if (selectedMonth === "" || rowMonth === selectedMonth) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
-        }
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+        let rowDate = data[3]; // Get date from the 4th column (index 3, as it's zero-based)
+        let rowMonth = rowDate.split("/")[1]; // Extract month
+
+        return selectedMonth === "" || rowMonth === selectedMonth;
+    });
+
+    table.draw(); // Redraw the table with the filter applied
+}
+
 		
 
 		
